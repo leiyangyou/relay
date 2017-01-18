@@ -293,6 +293,8 @@ class GraphQLRange {
       );
       return;
     }
+    
+    this._fixCalls(calls);
 
     if (calls.first) {
       // before().first() calls can produce gaps
@@ -307,13 +309,14 @@ class GraphQLRange {
           // When there is a gap from before().first() query, this is the same
           // as just storing a first().
           this._addAfterFirstItems(
-            edges, pageInfo[HAS_NEXT_PAGE], undefined, calls.before
+            edges, PageInfo[HAS_PREV_PAGE], pageInfo[HAS_NEXT_PAGE], undefined, calls.before
           );
         } else {
           // Since there is no gap, we can stitch into the beginning
           // of existing segment
           this._addBeforeLastItems(
             edges,
+            pageInfo[HAS_PREV_PAGE],
             pageInfo[HAS_PREV_PAGE],
             calls.before
           );
@@ -337,7 +340,7 @@ class GraphQLRange {
           }
         }
         this._addAfterFirstItems(
-          edges, pageInfo[HAS_NEXT_PAGE], calls.after, calls.before
+          edges, pageInfo[HAS_PREV_PAGE], pageInfo[HAS_NEXT_PAGE], calls.after, calls.before
         );
       }
     } else if (calls.last) {
@@ -352,13 +355,14 @@ class GraphQLRange {
           // When there is a gap from after().last() query, this is the same as
           // just storing a last().
           this._addBeforeLastItems(
-            edges, pageInfo[HAS_PREV_PAGE], undefined, calls.after
+            edges, pageInfo[HAS_PREV_PAGE],  pageInfo[HAS_PREV_PAGE], undefined, calls.after
           );
         } else {
           // Since there is no gap, we can stitch to the end
           // of existing segment
           this._addAfterFirstItems(
             edges,
+            pageInfo[HAS_PREV_PAGE],
             pageInfo[HAS_NEXT_PAGE],
             calls.after
           );
@@ -382,7 +386,7 @@ class GraphQLRange {
           }
         }
         this._addBeforeLastItems(
-          edges, pageInfo[HAS_PREV_PAGE], calls.before, calls.after
+          edges, pageInfo[HAS_PREV_PAGE], pageInfo[HAS_PREV_PAGE], calls.before, calls.after
         );
       }
     }
@@ -493,6 +497,7 @@ class GraphQLRange {
    */
   _addAfterFirstItems(
     edges,
+    hasPrevPage,
     hasNextPage,
     afterCursor,
     beforeCursor
@@ -548,7 +553,7 @@ class GraphQLRange {
       }
     }
 
-    if (afterCursor === undefined) {
+    if (!hasPrevPage) {
       this._hasFirst = true;
     }
 
@@ -616,6 +621,7 @@ class GraphQLRange {
   _addBeforeLastItems(
     edges,
     hasPrevPage,
+    hasNextPage,
     beforeCursor,
     afterCursor
   ) {
@@ -670,7 +676,7 @@ class GraphQLRange {
       }
     }
 
-    if (beforeCursor === undefined) {
+    if (!hasNextPage) {
       this._hasLast = true;
     }
 
@@ -736,6 +742,14 @@ class GraphQLRange {
       this._orderedSegments[ii].removeAllEdges(id);
     }
   }
+  
+  _fixCalls(calls) {
+    if (calls.first && calls.after && this._getSegmentIndexByCursor(calls.after) === null) {
+      delete calls.after;
+    } else if (calls.last && calls.before && this._getSegmentIndexByCursor(calls.before) === null) {
+      delete calls.before;
+    }
+  }
 
   /**
    * @param {array<object>} queryCalls
@@ -785,6 +799,7 @@ class GraphQLRange {
         pageInfo: RelayConnectionInterface.getDefaultPageInfo(),
       };
     }
+    
     if (calls.first) {
       return this._retrieveRangeInfoForFirstQuery(
         queryCalls,
@@ -876,6 +891,9 @@ class GraphQLRange {
       removeIDs = this._getRemovedIDsForQueuedRecord(queuedRecord);
     }
     const calls = callsArrayToObject(queryCalls);
+    
+    this._fixCalls(calls);
+    
     let countNeeded = calls.first + (removeIDs ? removeIDs.length : 0);
     let segment;
     let segmentIndex;
@@ -945,6 +963,16 @@ class GraphQLRange {
         }
       }
     }
+    
+    const firstID = requestedEdgeIDs[0];
+  
+    if (
+      !this._hasFirst ||
+      segmentIndex !== 0 ||
+      (firstID && firstID !== segment.getFirstID())
+    ) {
+      pageInfo[HAS_PREV_PAGE] = true;
+    }
 
     if (queuedRecord) {
       if (prependEdgeIDs && prependEdgeIDs.length && !calls.after) {
@@ -988,6 +1016,9 @@ class GraphQLRange {
       removeIDs = this._getRemovedIDsForQueuedRecord(queuedRecord);
     }
     const calls = callsArrayToObject(queryCalls);
+    
+    this._fixCalls(calls);
+    
     let countNeeded = calls.last + (removeIDs ? removeIDs.length : 0);
     let segment;
     let segmentIndex;
@@ -1056,6 +1087,16 @@ class GraphQLRange {
           diffCalls.push({name: 'last', value: countNeeded});
         }
       }
+    }
+    
+    const lastID = requestedEdgeIDs[requestedEdgeIDs.length - 1]
+    
+    if (
+      !this._hasLast ||
+      segmentIndex !== this._orderedSegments.length - 1 ||
+      (lastID && lastID !== segment.getLastID())
+    ) {
+      pageInfo[HAS_NEXT_PAGE] = true;
     }
 
     if (queuedRecord) {

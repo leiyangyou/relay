@@ -239,8 +239,7 @@ const RelayMutationQuery = {
 
     if (trackedConnections.length) {
       // If the first instance of the connection passes validation, all will.
-      // HACK to enable connection emulation
-      // validateConnection(parentName, connectionName, trackedConnections[0]);
+      validateConnection(parentName, connectionName, trackedConnections[0]);
 
       const mutatedEdgeFields = [];
       trackedConnections.forEach(trackedConnection => {
@@ -709,8 +708,7 @@ function getConnectionAndValidate(
   const connections = findDescendantFields(parentField, connectionName);
   if (connections.length) {
     // If the first instance of the connection passes validation, all will.
-    // HACK to enable connection emulation
-    // validateConnection(parentName, connectionName, connections[0]);
+    validateConnection(parentName, connectionName, connections[0]);
   }
 }
 

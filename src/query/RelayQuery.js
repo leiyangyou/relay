@@ -1122,8 +1122,7 @@ class RelayQueryField extends RelayQueryNode {
   }
 
   isConnection(): boolean {
-    // HACK to enable connection emultation
-    return false && !!(this.__concreteNode__: ConcreteField).metadata.isConnection;
+    return !!(this.__concreteNode__: ConcreteField).metadata.isConnection;
   }
 
   isConnectionWithoutNodeID(): boolean {
@@ -1177,14 +1176,13 @@ class RelayQueryField extends RelayQueryNode {
   *   `username(name: "steve")`                  => `''`
   */
   getRangeBehaviorCalls(): Array<Call> {
-    // HACK to enable connection emulation
-    /* invariant(
+    invariant(
       this.isConnection(),
       'RelayQueryField: Range behavior keys are associated exclusively with ' +
       'connection fields. `getRangeBehaviorCalls()` was called on the ' +
       'non-connection field `%s`.',
       this.getSchemaName()
-    ); */
+    );
 
     let rangeBehaviorCalls = this.__rangeBehaviorCalls__;
     if (!rangeBehaviorCalls) {
